@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>My GitHub Hub · 仓库与 Star 管理</title>
+  <meta name="description" content="按语言、类型与自定义标签整理自己的 GitHub 仓库与 Starred 项目，支持搜索筛选。" />
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E%E2%AD%90%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <button class="icon-btn only-mobile" id="drawerToggle" aria-label="打开筛选面板" aria-expanded="false">
+        <span class="hamburger"></span>
+      </button>
+
+      <a class="brand" href="./">
+        <span class="brand-mark">★</span>
+        <span class="brand-text">
+          <strong id="siteTitle">My GitHub Hub</strong>
+          <small id="siteSubtitle">仓库与 Star 收藏馆</small>
+        </span>
+      </a>
+
+      <div class="search-box">
+        <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a6 6 0 104.47 10.03l4.25 4.25 1.41-1.41-4.25-4.25A6 6 0 0010 4zm0 2a4 4 0 110 8 4 4 0 010-8z"/></svg>
+        <input id="searchInput" type="search" placeholder="搜索仓库名 / 描述 / 作者 / 话题…（按 / 聚焦）" autocomplete="off" spellcheck="false" aria-label="搜索仓库" />
+        <kbd class="only-desktop">/</kbd>
+        <button class="clear-btn" id="clearSearch" aria-label="清空搜索" hidden>×</button>
+      </div>
+
+      <div class="topbar-actions">
+        <button class="icon-btn" id="themeToggle" aria-label="切换主题" title="切换深色 / 浅色">
+          <span id="themeIcon">☀</span>
+        </button>
+        <button class="icon-btn" id="tagsBtn" aria-label="标签与数据管理" title="标签与数据管理">⚙</button>
+        <a class="icon-btn" id="githubLink" href="https://github.com" target="_blank" rel="noopener" aria-label="打开 GitHub 主页" title="GitHub 主页">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38l-.01-1.49c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.67.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 014 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A7.99 7.99 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+      </div>
+    </div>
+
+    <div class="stats" id="stats" aria-live="polite"></div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar" aria-label="筛选器">
+      <div class="sidebar-inner">
+        <div class="sidebar-head only-mobile">
+          <strong>筛选</strong>
+          <button class="icon-btn" id="drawerClose" aria-label="关闭筛选面板">×</button>
+        </div>
+
+        <section class="filter-block">
+          <h3>类型</h3>
+          <div class="seg" id="kindFilter" role="tablist">
+            <button class="seg-item is-active" data-value="all" role="tab">全部</button>
+            <button class="seg-item" data-value="own" role="tab">我的仓库</button>
+            <button class="seg-item" data-value="starred" role="tab">Starred</button>
+            <button class="seg-item" data-value="fav" role="tab">本地收藏</button>
+          </div>
+        </section>
+
+        <section class="filter-block">
+          <h3>语言</h3>
+          <div class="chip-scroll" id="langFilter"></div>
+        </section>
+
+        <section class="filter-block">
+          <h3>标签 / 话题</h3>
+          <div class="chip-scroll" id="tagFilter"></div>
+        </section>
+
+        <section class="filter-block">
+          <h3>其他</h3>
+          <label class="check"><input type="checkbox" id="onlyNew" /> <span>只看最近新增</span></label>
+          <label class="check"><input type="checkbox" id="hideArchived" checked /> <span>隐藏归档仓库</span></label>
+          <label class="check"><input type="checkbox" id="hideForks" /> <span>隐藏 Fork 仓库</span></label>
+        </section>
+
+        <button class="btn btn-ghost btn-block" id="resetFilters">重置全部筛选</button>
+      </div>
+    </aside>
+    <div class="scrim" id="scrim" hidden></div>
+
+    <main class="main" id="main">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <span class="result-count" id="resultCount">加载中…</span>
+        </div>
+        <div class="toolbar-right">
+          <label class="field">
+            <span>排序</span>
+            <select id="sortSelect" aria-label="排序方式">
+              <option value="stars">Star 数</option>
+              <option value="updated">最近更新</option>
+              <option value="pushed">最近推送</option>
+              <option value="created">创建时间</option>
+              <option value="name">名称 A→Z</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>视图</span>
+            <select id="viewSelect" aria-label="视图模式">
+              <option value="grid">网格</option>
+              <option value="list">紧凑列表</option>
+              <option value="group-lang">按语言分组</option>
+              <option value="group-tag">按标签分组</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="active-filters" id="activeFilters" hidden></div>
+
+      <div id="results" class="results"></div>
+      <div class="load-more-wrap">
+        <button class="btn" id="loadMore" hidden>加载更多</button>
+      </div>
+
+      <footer class="footer">
+        <span id="updatedAt"></span>
+        <span class="dot">·</span>
+        <span>数据由 GitHub Actions 自动更新</span>
+      </footer>
+    </main>
+  </div>
+
+  <!-- 标签与数据管理弹窗 -->
+  <div class="modal" id="tagsModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tagsModalTitle">
+      <div class="modal-head">
+        <h2 id="tagsModalTitle">标签与数据管理</h2>
+        <button class="icon-btn" id="modalClose" aria-label="关闭">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="hint">
+          「本地标签」与「本地收藏」保存在此浏览器（localStorage），不会上传。
+          也可以把规则写进仓库里的 <code>data/custom-tags.json</code>，对所有设备生效。
+        </p>
+
+        <h3>本地标签统计</h3>
+        <div id="localTagList" class="local-tags"></div>
+
+        <h3>导入 / 导出</h3>
+        <div class="row-actions">
+          <button class="btn btn-ghost" id="exportBtn">导出 JSON</button>
+          <button class="btn btn-ghost" id="copyBtn">复制到剪贴板</button>
+          <label class="btn btn-ghost file-btn">
+            导入 JSON<input type="file" id="importFile" accept="application/json" hidden />
+          </label>
+          <button class="btn btn-ghost danger" id="clearLocalBtn">清空本地数据</button>
+        </div>
+        <textarea id="jsonBox" class="json-box" spellcheck="false" placeholder="在此粘贴 JSON 后点击「导入」"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/core.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

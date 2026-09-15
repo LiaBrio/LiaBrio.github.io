@@ -1,0 +1,74 @@
+name: Update GitHub data
+
+on:
+  # 每天 UTC 03:17 自动抓取一次（≈ 北京时间 11:17）；可改成每小时：0 * * * *
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      username:
+        description: '要抓取的 GitHub 用户名（留空用仓库 owner）'
+        required: false
+      include_private:
+        description: '是否包含私有仓库（页面是公开的，谨慎开启）'
+        type: boolean
+        default: false
+  # 代码变更时重新部署（data/ 由机器人提交，不触发，避免自循环）
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'data/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: github-hub-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch repos and stars
+        env:
+          GITHUB_USERNAME: ${{ inputs.username || vars.GITHUB_USERNAME || github.repository_owner }}
+          # 默认用内置令牌即可；抓取大量 star 时建议配置 DATA_TOKEN 以获得更高限速
+          GITHUB_TOKEN: ${{ secrets.DATA_TOKEN || secrets.GITHUB_TOKEN }}
+        run: node scripts/fetch-data.mjs ${{ inputs.include_private && '--include-private' || '' }}
+
+      - name: Commit data changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain data)" ]; then
+            git add data
+            git commit -m "chore(data): update repos & stars [skip ci] $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+          else
+            echo "数据没有变化，跳过提交"
+          fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,20 @@
+{
+  "name": "my-github-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "个人 GitHub 仓库与 Star 收藏馆，自动同步到 GitHub Pages",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "fetch": "node scripts/fetch-data.mjs",
+    "dev": "npx --yes serve -l 5173 .",
+    "preview": "npx --yes serve -l 5173 .",
+    "test": "node --test",
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
+    "test:dom": "node --test \"tests/dom/*.test.js\"",
+    "test:live": "node --test \"tests/live/*.test.js\"",
+    "fetch:test": "node scripts/fetch-data.mjs --max-pages 1 --out=.tmp/repos.json"
+  }
+}

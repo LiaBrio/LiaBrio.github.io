@@ -1,0 +1,37 @@
+{
+  "_comment": "自定义标签规则。match 内任意条件命中即打上该标签；命中规则会被 Actions 保留，对所有设备生效。",
+  "tags": [
+    {
+      "name": "AI / LLM",
+      "match": {
+        "topics": ["llm", "ai", "machine-learning", "openai", "chatgpt", "agent"],
+        "keywords": ["llm", "gpt", "rag"],
+        "languages": []
+      }
+    },
+    {
+      "name": "前端框架",
+      "match": {
+        "topics": ["react", "vue", "svelte", "frontend", "nextjs"],
+        "languages": ["Vue", "Svelte", "Astro"]
+      }
+    },
+    {
+      "name": "工程化",
+      "match": {
+        "topics": ["vite", "webpack", "ci-cd", "monorepo", "build-tool"],
+        "keywords": ["bundler", "monorepo", "脚手架"]
+      }
+    },
+    {
+      "name": "必读清单",
+      "match": {
+        "owners": [],
+        "fullNames": []
+      }
+    }
+  ],
+  "map": {
+    "_comment": "精确指定：仓库全名 → 标签列表，优先级高于上面的规则"
+  }
+}
