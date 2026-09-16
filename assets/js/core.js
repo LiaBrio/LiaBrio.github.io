@@ -37,6 +37,19 @@
 
   /* ---------------- 数据增强 ---------------- */
 
+  /** 单项条件是否命中（全等匹配或关键词包含） */
+  function hitValue(repo, field, v) {
+    switch (field) {
+      case 'fullNames': return String(repo.fullName).toLowerCase() === v;
+      case 'owners': return String(repo.owner || '').toLowerCase() === v;
+      case 'topics': return (repo.topics || []).some(function (t) { return String(t).toLowerCase() === v; });
+      case 'languages': return String(repo.language || '').toLowerCase() === v;
+      case 'keywords':
+        return (repo.fullName + ' ' + (repo.description || '')).toLowerCase().indexOf(v) !== -1;
+      default: return false;
+    }
+  }
+
   /** 规则命中：conditions 内任意字段匹配即生效 */
   function matchesRule(repo, match) {
     var fields = ['fullNames', 'owners', 'topics', 'languages', 'keywords'];
@@ -45,25 +58,51 @@
       if (!Array.isArray(vals) || !vals.length) continue;
       for (var j = 0; j < vals.length; j++) {
         var v = String(vals[j]).toLowerCase();
-        if (!v) continue;
-        switch (fields[i]) {
-          case 'fullNames': if (String(repo.fullName).toLowerCase() === v) return true; break;
-          case 'owners': if (String(repo.owner || '').toLowerCase() === v) return true; break;
-          case 'topics': if ((repo.topics || []).some(function (t) { return String(t).toLowerCase() === v; })) return true; break;
-          case 'languages': if (String(repo.language || '').toLowerCase() === v) return true; break;
-          case 'keywords':
-            var hay = (repo.fullName + ' ' + (repo.description || '')).toLowerCase();
-            if (hay.indexOf(v) !== -1) return true;
-            break;
-        }
+        if (v && hitValue(repo, fields[i], v)) return true;
       }
     }
     return false;
   }
 
+  /** 各类条件的置信权重：越精确的指派越优先 */
+  var RULE_WEIGHT = { fullNames: 8, owners: 4, topics: 3, languages: 2, keywords: 1 };
+
+  /** 规则命中得分 = 命中的条件权重之和，0 表示未命中 */
+  function ruleScore(repo, match) {
+    var fields = Object.keys(RULE_WEIGHT);
+    var score = 0;
+    for (var i = 0; i < fields.length; i++) {
+      var vals = match[fields[i]];
+      if (!Array.isArray(vals) || !vals.length) continue;
+      for (var j = 0; j < vals.length; j++) {
+        var v = String(vals[j]).toLowerCase();
+        if (v && hitValue(repo, fields[i], v)) score += RULE_WEIGHT[fields[i]];
+      }
+    }
+    return score;
+  }
+
+  var UNCATEGORIZED = '未分类';
+
+  /**
+   * 按功能给仓库打分归类，返回按得分降序的分类名数组（可能为空）。
+   * cats: [{ name, match }]，顺序用于同分时兜底（靠前者优先）。
+   */
+  function classify(repo, cats) {
+    var scored = [];
+    (cats || []).forEach(function (c, idx) {
+      if (!c || !c.name) return;
+      var s = ruleScore(repo, c.match || c);
+      if (s > 0) scored.push({ name: c.name, score: s, idx: idx });
+    });
+    scored.sort(function (a, b) { return b.score - a.score || a.idx - b.idx; });
+    return scored.map(function (s) { return s.name; });
+  }
+
   /**
    * 把原始条目增强成便于渲染/检索的 item。
-   * opts: { favs, tags, newWithinDays, now }
+   * opts: { favs, tags, newWithinDays, now, categories, catMap }
+   * categories 为功能分类规则 [{ name, match }]；catMap 为 fullName → 分类名(数组) 的强指派。
    */
   function buildItems(rawItems, rules, opts) {
     opts = opts || {};
@@ -75,6 +114,8 @@
     var cutoff = now - days * DAY;
     var ruleList = Array.isArray(rules.tags) ? rules.tags : [];
     var ruleMap = rules.map || {};
+    var cats = opts.categories || [];
+    var catMap = opts.catMap || {};
 
     return (rawItems || []).map(function (r) {
       var tags = [];
@@ -87,6 +128,12 @@
       var topics = r.topics || [];
       var isNew = r.firstSeen ? new Date(r.firstSeen).getTime() >= cutoff : false;
 
+      // 功能分类：强指派优先，其次按规则打分，得分类别按得分降序
+      var manual = catMap[r.fullName];
+      if (manual && !Array.isArray(manual)) manual = [manual];
+      var categories = (manual || []).slice();
+      if (!categories.length) categories = classify(r, cats);
+
       return {
         raw: r,
         id: r.id,
@@ -98,6 +145,8 @@
         homepage: r.homepage && r.homepage !== r.url ? r.homepage : '',
         language: r.language || '未知',
         topics: topics,
+        categories: categories,
+        category: categories[0] || UNCATEGORIZED,
         customTags: tags,
         localTags: localTags,
         stars: r.stars || 0,
@@ -115,7 +164,8 @@
         fav: favs.indexOf(r.fullName) !== -1,
         isNew: isNew,
         search: (r.fullName + ' ' + (r.description || '') + ' ' + topics.join(' ') + ' ' +
-          tags.join(' ') + ' ' + localTags.join(' ') + ' ' + (r.language || '')).toLowerCase()
+          tags.join(' ') + ' ' + localTags.join(' ') + ' ' + categories.join(' ') + ' ' +
+          (r.language || '')).toLowerCase()
       };
     });
   }
@@ -123,7 +173,7 @@
   /* ---------------- 过滤 / 排序 / 分组 ---------------- */
 
   /**
-   * criteria: { q, kind, lang, tag, onlyNew, hideArchived, hideForks }
+   * criteria: { q, kind, lang, tag, cat, onlyNew, hideArchived, hideForks }
    * 返回新数组，不修改入参。
    */
   function filterItems(items, criteria) {
@@ -131,6 +181,7 @@
     var q = String(criteria.q || '').trim().toLowerCase();
     var terms = q ? q.split(/\s+/) : [];
     var tagKey = criteria.tag || '';
+    var cat = criteria.cat || '';
     var kind = criteria.kind || 'all';
     var lang = criteria.lang || '';
 
@@ -139,6 +190,10 @@
       if (kind === 'starred' && it.kind !== 'starred') return false;
       if (kind === 'fav' && !it.fav) return false;
       if (lang && it.language !== lang) return false;
+      if (cat) {
+        if (cat === UNCATEGORIZED) { if (it.categories.length) return false; }
+        else if (it.categories.indexOf(cat) === -1) return false;
+      }
       if (criteria.hideArchived && it.archived) return false;
       if (criteria.hideForks && it.fork) return false;
       if (criteria.onlyNew && !it.isNew) return false;
@@ -198,6 +253,27 @@
     }).sort(function (a, b) { return b.count - a.count || a.name.localeCompare(b.name); });
   }
 
+  /** 功能分类计数，按数量降序、名称升序；「未分类」永远排最后 */
+  function catCounts(items) {
+    var counts = {};
+    (items || []).forEach(function (it) {
+      var seen = {};
+      if (!it.categories.length) counts[UNCATEGORIZED] = (counts[UNCATEGORIZED] || 0) + 1;
+      it.categories.forEach(function (c) {
+        if (seen[c]) return;
+        seen[c] = 1;
+        counts[c] = (counts[c] || 0) + 1;
+      });
+    });
+    return Object.keys(counts).map(function (name) {
+      return { name: name, count: counts[name] };
+    }).sort(function (a, b) {
+      if (a.name === UNCATEGORIZED) return 1;
+      if (b.name === UNCATEGORIZED) return -1;
+      return b.count - a.count || a.name.localeCompare(b.name);
+    });
+  }
+
   /** 所有可选标签（话题 + 规则标签 + 本地标签），带计数；local 排在最前 */
   function collectTags(items) {
     var counts = {};
@@ -228,11 +304,15 @@
     fmtNum: fmtNum,
     relTime: relTime,
     matchesRule: matchesRule,
+    ruleScore: ruleScore,
+    classify: classify,
+    UNCATEGORIZED: UNCATEGORIZED,
     buildItems: buildItems,
     filterItems: filterItems,
     sortItems: sortItems,
     groupItems: groupItems,
     langCounts: langCounts,
+    catCounts: catCounts,
     collectTags: collectTags
   };
 });

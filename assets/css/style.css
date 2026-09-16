@@ -8,6 +8,7 @@
   --accent: #4f8cff;
   --accent-soft: rgba(79, 140, 255, 0.14);
   --star: #f0b429;
+  --cat: #a371f7;
   --danger: #f85149;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   --radius: 12px;
@@ -25,12 +26,16 @@
   --accent: #0969da;
   --accent-soft: rgba(9, 105, 218, 0.1);
   --star: #bf8700;
+  --cat: #8250df;
   --danger: #cf222e;
   --shadow: 0 6px 20px rgba(31, 35, 40, 0.08);
   color-scheme: light;
 }
 
 * { box-sizing: border-box; }
+
+/* JS 用 hidden 属性控制显隐，这里保证它优先级高于任何 class 的 display */
+[hidden] { display: none !important; }
 
 html, body { height: 100%; }
 
@@ -262,6 +267,11 @@ a { color: inherit; text-decoration: none; }
 .badge.new { color: #fff; background: #2ea043; border-color: #2ea043; }
 .badge.fav { color: var(--star); border-color: color-mix(in srgb, var(--star) 50%, transparent); }
 .badge.local { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+.badge.cat {
+  color: var(--cat); border-color: color-mix(in srgb, var(--cat) 50%, transparent);
+  background: color-mix(in srgb, var(--cat) 12%, transparent); cursor: pointer;
+}
+.badge.cat:hover { background: color-mix(in srgb, var(--cat) 22%, transparent); }
 
 .card-desc {
   color: var(--text-dim); font-size: 13px; margin: 0;

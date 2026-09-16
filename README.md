@@ -3,7 +3,7 @@
 一个部署在 GitHub Pages 上的个人仓库 / Star 收藏馆。
 
 - 自动汇总**自己的仓库**和**已 Star 的仓库**，解决「star 之后再也找不到」的问题
-- 支持**语言 / 类型 / 话题 / 自定义标签**多维筛选，全文搜索、排序、分组浏览
+- 按**功能**（AI / 前端 / 后端 / 工具 / DevOps …）自动归类，并支持**语言 / 类型 / 话题 / 自定义标签**多维筛选，全文搜索、排序、分组浏览
 - GitHub Actions **每天定时**抓取新增的仓库与 star，自动更新数据并重新部署页面
 - 响应式布局：桌面端左侧常驻筛选栏，移动端抽屉式筛选 + 单列卡片
 
@@ -20,6 +20,7 @@
 │       └── store.js            # 本地收藏与标签（localStorage）
 ├── data/
 │   ├── repos.json              # 抓取脚本生成的数据快照（自动生成，勿手改）
+│   ├── categories.json         # 功能分类规则（手写，Actions 不会覆盖）
 │   └── custom-tags.json        # 自定义标签规则（手写，Actions 不会覆盖）
 ├── scripts/fetch-data.mjs      # 抓取脚本
 └── .github/workflows/update-data.yml
@@ -48,6 +49,30 @@ schedule:
 **「新增」是怎么算出来的**：脚本会把上一份快照读回来，用 `firstSeen` 记录每个仓库首次出现的时间，新出现的仓库被打上 `NEW` 标记（默认 7 天内，可在 `assets/js/config.js` 的 `newWithinDays` 调整），同时用 `starsDelta` 记录 star 数量的增量。
 
 **速率限制**：不带令牌时 GitHub API 限速 60 次/小时，Star 数量多时会不够用。建议在 `Settings → Secrets and variables → Actions` 里新增 Secret `DATA_TOKEN`（Personal Access Token，只需要 `public_repo` 只读权限即可），工作流会自动优先使用它。不想用变量/settings 也可以在工作流里直接写死用户名变量 `vars.GITHUB_USERNAME`。
+
+## 功能分类
+
+除了「语言 / 话题」这些 GitHub 自带维度，页面还会按**用途**给仓库自动归类：AI · 大模型、前端 · UI、后端 · 服务、工具 · CLI、DevOps · 基础设施、数据 · 分析、移动 · 桌面、游戏 · 图形、安全 · 隐私、文档 · 学习，都没命中则归入「未分类」。
+
+- 侧栏「功能分类」点一下即可筛选；卡片上的紫色徽标就是主分类，点徽标同样能筛选
+- 视图切换里的**按功能分类分组**会把结果按分类分段展示
+- 归类结果随数据一起刷新，无需手工维护
+
+规则写在 `data/categories.json`，字段与自定义标签一致（`fullNames` / `owners` 精确匹配，`topics` / `languages` 精确匹配，`keywords` 匹配仓库名+描述），但**按命中数打分**：命中的条件越多得分越高，得分最高的分类作为主分类；同分时 `categories` 数组里靠前的优先。想强行指定某个仓库的分类，写在 `overrides` 里，优先级最高：
+
+```json
+{
+  "categories": [
+    {
+      "name": "AI · 大模型",
+      "match": { "topics": ["llm", "rag"], "keywords": ["gpt"] }
+    }
+  ],
+  "overrides": { "owner/repo": ["文档 · 学习"] }
+}
+```
+
+> 该文件**不会被 Actions 覆盖**；如果删掉或改名，页面会退化为「所有仓库都是未分类」，其余功能不受影响（也可在 `assets/js/config.js` 里改 `categoriesUrl`）。
 
 ## 自定义标签
 
@@ -98,12 +123,12 @@ python3 -m http.server 5173                            # 任意静态服务器
 | 字段 | 说明 |
 | --- | --- |
 | `title` / `subtitle` | 站点标题，留空则自动取 GitHub 用户名 |
-| `dataUrl` / `customTagsUrl` | 数据文件路径 |
+| `dataUrl` / `customTagsUrl` / `categoriesUrl` | 数据文件 / 标签规则 / 功能分类规则的路径 |
 | `pageSize` | 每屏渲染条数，配合「加载更多」 |
 | `newWithinDays` | NEW 标记的时间窗口 |
 | `langColors` | 语言色板 |
 
-URL 会自动带上当前筛选状态（如 `#q=cli&lang=Go&sort=stars`），可直接把筛选结果分享出去。
+URL 会自动带上当前筛选状态（如 `#q=cli&cat=AI · 大模型&lang=Go&sort=stars`），可直接把筛选结果分享出去。
 
 ## 本地测试
 

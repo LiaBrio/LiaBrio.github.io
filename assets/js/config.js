@@ -11,6 +11,8 @@ window.SITE_CONFIG = {
   dataUrl: 'data/repos.json',
   // 自定义标签规则：可对所有设备生效，见 README「自定义标签」
   customTagsUrl: 'data/custom-tags.json',
+  // 功能分类规则：命中即给仓库打上「用途」维度的分类，见 README「功能分类」
+  categoriesUrl: 'data/categories.json',
 
   // 每页渲染数量（用于几千条 star 时的渐进渲染，配合「加载更多」）
   pageSize: 60,

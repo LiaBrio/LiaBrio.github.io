@@ -16,6 +16,7 @@
     tagCounts: [],
     q: '',
     kind: 'all',
+    cat: '',
     lang: '',
     tag: '',
     sort: 'stars',
@@ -30,7 +31,7 @@
   var el = {};
   [
     'searchInput', 'clearSearch', 'themeToggle', 'themeIcon', 'tagsBtn', 'githubLink', 'drawerToggle',
-    'drawerClose', 'scrim', 'sidebar', 'stats', 'kindFilter', 'langFilter', 'tagFilter', 'onlyNew',
+    'drawerClose', 'scrim', 'sidebar', 'stats', 'kindFilter', 'catFilter', 'langFilter', 'tagFilter', 'onlyNew',
     'hideArchived', 'hideForks', 'resetFilters', 'sortSelect', 'viewSelect', 'resultCount',
     'activeFilters', 'results', 'loadMore', 'updatedAt', 'tagsModal', 'modalClose', 'localTagList',
     'exportBtn', 'copyBtn', 'importFile', 'clearLocalBtn', 'jsonBox', 'toast', 'siteTitle', 'siteSubtitle'
@@ -84,11 +85,15 @@
 
     Promise.all([
       loadJSON(CFG.dataUrl),
-      loadJSON(CFG.customTagsUrl).catch(function () { return { tags: [], map: {} }; })
+      loadJSON(CFG.customTagsUrl).catch(function () { return { tags: [], map: {} }; }),
+      loadJSON(CFG.categoriesUrl).catch(function () { return { categories: [], overrides: {} }; })
     ]).then(function (res) {
       state.data = res[0];
       var rules = res[1] || { tags: [], map: {} };
+      var cats = res[2] || { categories: [], overrides: {} };
       state.rules = rules;
+      state.categories = Array.isArray(cats.categories) ? cats.categories : [];
+      state.catMap = cats.overrides || {};
       buildItems(state.data, rules);
       renderChrome(state.data);
       renderFilters();
@@ -109,6 +114,8 @@
     state.items = Core.buildItems(data && data.items, rules, {
       favs: window.Store.favs,
       tags: window.Store.tags,
+      categories: state.categories || [],
+      catMap: state.catMap || {},
       newWithinDays: CFG.newWithinDays
     });
   }
@@ -137,6 +144,13 @@
   }
 
   function renderFilters() {
+    // 功能分类
+    state.catCounts = Core.catCounts(state.items);
+    el.catFilter.innerHTML = chipHtml('', '全部分类', state.items.length, state.cat === '') +
+      state.catCounts.map(function (c) {
+        return chipHtml(c.name, c.name, c.count, state.cat === c.name, 'var(--cat)');
+      }).join('');
+
     // 语言
     state.langs = Core.langCounts(state.items);
 
@@ -179,6 +193,7 @@
     var list = Core.filterItems(state.items, {
       q: state.q,
       kind: state.kind,
+      cat: state.cat,
       lang: state.lang,
       tag: state.tag,
       onlyNew: state.onlyNew,
@@ -200,6 +215,7 @@
     var pills = [];
     if (state.q) pills.push(['搜索：' + state.q, 'q']);
     if (state.kind !== 'all') pills.push(['类型：' + kindLabel(state.kind), 'kind']);
+    if (state.cat) pills.push(['功能：' + state.cat, 'cat']);
     if (state.lang) pills.push(['语言：' + state.lang, 'lang']);
     if (state.tag) pills.push(['标签：' + state.tag.split(':').slice(1).join(':'), 'tag']);
     if (state.onlyNew) pills.push(['只看新增', 'onlyNew']);
@@ -225,6 +241,10 @@
     if (it.kind === 'own') badges += '<span class="badge" title="我自己的仓库">OWN</span>';
     if (it.fork) badges += '<span class="badge" title="Fork 仓库">FORK</span>';
     if (it.archived) badges += '<span class="badge" title="已归档">ARCHIVED</span>';
+    if (it.categories.length) {
+      badges += '<button class="badge cat" data-cat="' + esc(it.category) + '" ' +
+        'title="点击按此功能分类筛选：' + esc(it.categories.join(' / ')) + '">' + esc(it.category) + '</button>';
+    }
     it.localTags.forEach(function (t) { badges += '<span class="badge local">#' + esc(t) + '</span>'; });
     it.customTags.forEach(function (t) { badges += '<span class="badge">' + esc(t) + '</span>'; });
 
@@ -282,6 +302,8 @@
 
     if (view === 'group-lang') {
       el.results.innerHTML = groupHtml(state.visible, shown, function (it) { return it.language; });
+    } else if (view === 'group-cat') {
+      el.results.innerHTML = groupHtml(state.visible, shown, function (it) { return it.category; });
     } else if (view === 'group-tag') {
       el.results.innerHTML = groupHtml(state.visible, shown, function (it) {
         if (it.customTags.length) return it.customTags[0];
@@ -320,6 +342,7 @@
     var p = [];
     if (state.q) p.push('q=' + encodeURIComponent(state.q));
     if (state.kind !== 'all') p.push('kind=' + state.kind);
+    if (state.cat) p.push('cat=' + encodeURIComponent(state.cat));
     if (state.lang) p.push('lang=' + encodeURIComponent(state.lang));
     if (state.tag) p.push('tag=' + encodeURIComponent(state.tag));
     if (state.sort !== 'stars') p.push('sort=' + state.sort);
@@ -343,6 +366,7 @@
     });
     if (p.q) { state.q = p.q; el.searchInput.value = p.q; toggleClear(); }
     if (p.kind) state.kind = p.kind;
+    if (p.cat) state.cat = p.cat;
     if (p.lang) state.lang = p.lang;
     if (p.tag) state.tag = p.tag;
     if (p.sort) state.sort = p.sort;
@@ -391,6 +415,7 @@
       return b.dataset.moreTags ? 'expand' : false;
     };
     el.kindFilter.addEventListener('click', onChipGroup(el.kindFilter, function (v) { state.kind = v; }));
+    el.catFilter.addEventListener('click', onChipGroup(el.catFilter, function (v) { state.cat = v; }));
     el.langFilter.addEventListener('click', onChipGroup(el.langFilter, function (v) { state.lang = v; }));
     el.tagFilter.addEventListener('click', onChipGroup(el.tagFilter, function (v) { state.tag = v; }, expandTags));
 
@@ -498,6 +523,14 @@
   }
 
   function onResultClick(e) {
+    var catBtn = e.target.closest('[data-cat]');
+    if (catBtn) {
+      state.cat = catBtn.dataset.cat;
+      state.page = 1;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     var topicBtn = e.target.closest('[data-topic]');
     if (topicBtn) {
       state.tag = 'topic:' + topicBtn.dataset.topic;
@@ -537,6 +570,7 @@
     switch (which) {
       case 'q': state.q = ''; el.searchInput.value = ''; toggleClear(); break;
       case 'kind': state.kind = 'all'; break;
+      case 'cat': state.cat = ''; break;
       case 'lang': state.lang = ''; break;
       case 'tag': state.tag = ''; break;
       case 'onlyNew': state.onlyNew = false; break;
@@ -544,7 +578,7 @@
       case 'hideForks': state.hideForks = false; break;
       case 'all':
         state.q = ''; el.searchInput.value = ''; toggleClear();
-        state.kind = 'all'; state.lang = ''; state.tag = '';
+        state.kind = 'all'; state.cat = ''; state.lang = ''; state.tag = '';
         state.onlyNew = false; state.hideArchived = true; state.hideForks = false;
         delete el.tagFilter.dataset.expanded;
         break;

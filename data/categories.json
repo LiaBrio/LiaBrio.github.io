@@ -1,0 +1,83 @@
+{
+  "_comment": "功能分类规则。match 内的字段：fullNames / owners（精确等于）、topics / languages（精确等于）、keywords（仓库名+描述包含）。命中越多得分越高，得分最高的分类作为主分类；overrides 可强行指派，优先级高于规则。",
+  "categories": [
+    {
+      "name": "AI · 大模型",
+      "match": {
+        "topics": ["llm", "llms", "ai", "agi", "artificial-intelligence", "machine-learning", "deep-learning", "openai", "chatgpt", "gpt", "gpt-3", "gpt-4", "transformer", "nlp", "natural-language-processing", "computer-vision", "diffusion", "stable-diffusion", "text-to-image", "speech-recognition", "tts", "embedding", "rag", "agent", "ai-agent", "agents", "langchain", "pytorch", "tensorflow", "keras", "reinforcement-learning", "finetune", "prompt"],
+        "keywords": ["llm", "gpt", "rag", "langchain", "neural network", "machine learning", "大模型", "人工智能"]
+      }
+    },
+    {
+      "name": "安全 · 隐私",
+      "match": {
+        "topics": ["security", "cybersecurity", "infosec", "pentest", "penetration-testing", "ctf", "cryptography", "exploit", "vulnerability", "malware", "forensics", "network-security", "privacy", "reverse-engineering", "redteam", "bugbounty", "waf", "firewall", "hashcat", "scanner"],
+        "keywords": ["security", "exploit", "pentest", "payload", "渗透", "安全"]
+      }
+    },
+    {
+      "name": "游戏 · 图形",
+      "match": {
+        "topics": ["game", "games", "game-development", "game-engine", "gamedev", "graphics", "rendering", "renderer", "ray-tracing", "opengl", "vulkan", "webgl", "threejs", "unity", "unreal-engine", "godot", "shader", "shaders", "2d", "3d", "voxel", "pixel-art"],
+        "keywords": ["game engine", "renderer", "shader", "游戏引擎", "渲染"]
+      }
+    },
+    {
+      "name": "移动 · 桌面",
+      "match": {
+        "topics": ["android", "ios", "iphone", "ipad", "macos", "windows", "mobile", "react-native", "flutter", "swiftui", "electron", "tauri", "desktop", "desktop-app", "xamarin", "wearos", "harmonyos"],
+        "languages": ["Swift", "Kotlin", "Dart", "Objective-C", "Objective-C++"],
+        "keywords": ["mobile app", "desk app", "桌面应用", "小程序", "应用"]
+      }
+    },
+    {
+      "name": "数据 · 分析",
+      "match": {
+        "topics": ["database", "dbms", "sql", "postgresql", "postgres", "mysql", "sqlite", "redis", "mongodb", "clickhouse", "elasticsearch", "data-science", "data-analysis", "data-visualization", "visualization", "pandas", "numpy", "dashboard", "etl", "big-data", "spark", "hadoop", "airflow", "olap", "chart", "charts", "data-pipeline"],
+        "languages": ["Jupyter Notebook", "PLpgSQL", "TSQL"],
+        "keywords": ["database", "orm", "olap", "dataframe", "数据库", "数据仓库"]
+      }
+    },
+    {
+      "name": "DevOps · 基础设施",
+      "match": {
+        "topics": ["devops", "docker", "kubernetes", "k8s", "ci-cd", "cicd", "github-actions", "terraform", "ansible", "cloud", "cloud-native", "serverless", "nginx", "linux", "kernel", "infrastructure", "monitoring", "observability", "prometheus", "grafana", "deploy", "deployment", "reverse-proxy", "container", "load-balancer", "homelab", "systemd", "sre"],
+        "languages": ["Dockerfile", "Nix"],
+        "keywords": ["docker", "kubernetes", "deploy", "ci cd", "部署", "运维"]
+      }
+    },
+    {
+      "name": "前端 · UI",
+      "match": {
+        "topics": ["frontend", "front-end", "web", "ui", "ux", "react", "preact", "vue", "vue3", "angular", "svelte", "solidjs", "nextjs", "nuxt", "remix", "tailwindcss", "css-in-js", "component-library", "design-system", "animation", "atomic-css", "ui-components"],
+        "languages": ["Vue", "Svelte", "Astro", "CSS", "SCSS", "Less"],
+        "keywords": ["component", "hook", "ui library", "前端", "组件库"]
+      }
+    },
+    {
+      "name": "后端 · 服务",
+      "match": {
+        "topics": ["backend", "back-end", "server", "api", "rest", "rest-api", "graphql", "microservices", "web-framework", "django", "flask", "fastapi", "express", "nestjs", "spring-boot", "laravel", "rails", "gin", "rpc", "grpc", "mqtt", "websocket", "queue", "message-queue", "cache", "gateway"],
+        "keywords": ["backend", "http server", "web framework", "后端框架", "服务端"]
+      }
+    },
+    {
+      "name": "工具 · CLI",
+      "match": {
+        "topics": ["cli", "command-line", "commandline", "terminal", "tui", "shell", "dotfiles", "productivity", "utility", "utilities", "automation", "tooling", "downloader", "converter", "parser", "formatter", "linter", "browser-extension", "shortcuts"],
+        "languages": ["Shell", "PowerShell"],
+        "keywords": ["cli", "command line", "downloader", "parser", "命令行", "效率工具"]
+      }
+    },
+    {
+      "name": "文档 · 学习",
+      "match": {
+        "topics": ["docs", "documentation", "tutorial", "awesome", "awesome-list", "book", "books", "notes", "cheatsheet", "cheat-sheet", "interview", "interview-questions", "roadmap", "learn", "learning", "course", "guide", "resources", "syllabus", "starter-kit", "template", "boilerplate"],
+        "keywords": ["awesome", "cheatsheet", "roadmap", "tutorial", "handbook", "教程", "面试", "学习笔记"]
+      }
+    }
+  ],
+  "overrides": {
+    "_comment": "精确指派：仓库全名 → 分类名或分类数组，优先级最高；删除整行即回到规则判定"
+  }
+}

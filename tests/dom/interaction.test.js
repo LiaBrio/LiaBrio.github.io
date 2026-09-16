@@ -4,6 +4,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import { loadPage } from '../helpers/load-page.js';
 import { ensureData, readSnapshot, PROJECT_ROOT } from '../helpers/ensure-data.js';
@@ -36,7 +37,8 @@ async function newPage(opts) {
     root: ROOT,
     fetchMap: {
       'data/repos.json': path.relative(ROOT, dataInfo.file),
-      'data/custom-tags.json': 'data/custom-tags.json'
+      'data/custom-tags.json': 'data/custom-tags.json',
+      'data/categories.json': 'data/categories.json'
     }
   }, opts || {}));
 }
@@ -161,6 +163,51 @@ test('开关：含归档 / 隐藏 Fork / 只看新增', async (t) => {
 
   p.change('#onlyNew', 'checked', false);
   assert.equal(p.count('.card'), Math.min(NOT_ARCHIVED.length, PAGE_SIZE));
+  p.restore();
+});
+
+test('功能分类：侧栏生成分类 chip，点击后只保留该分类的仓库', async (t) => {
+  if (skipOrThrow(t)) return;
+  const p = await newPage();
+  const Core = p.win.GHHubCore;
+  const catCfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/categories.json'), 'utf8'));
+  const cats = catCfg.categories || [];
+  const overrides = catCfg.overrides || {};
+
+  const withCat = Core.buildItems(ITEMS, { tags: [], map: {} },
+    { categories: cats, catMap: overrides, newWithinDays: 7 });
+  const catOf = (full) => (withCat.find((i) => i.fullName === full) || {}).categories || [];
+
+  // 侧栏 chip = 全部分类 + 有命中的分类（含未分类）
+  const expectCats = Core.catCounts(withCat);
+  const chips = p.doc.querySelectorAll('#catFilter .chip');
+  assert.equal(chips.length, expectCats.length + 1, '分类 chip = 分类数 +「全部分类」');
+  assert.equal(p.chip('catFilter', '').classList.contains('is-active'), true, '默认选中「全部分类」');
+
+  const top = expectCats.find((c) => c.name !== Core.UNCATEGORIZED);
+  if (!top) {
+    t.skip('当前数据没有命中任何分类规则，跳过筛选断言');
+    p.restore();
+    return;
+  }
+
+  const expected = NOT_ARCHIVED.filter((i) => catOf(i.fullName).includes(top.name)).length;
+  p.click(p.chip('catFilter', top.name));
+  assert.equal(p.text('#resultCount').startsWith('共 ' + expected + ' 个'), true, p.text('#resultCount'));
+  assert.ok(p.text('#activeFilters').includes('功能：' + top.name), '应出现已选条件');
+  p.doc.querySelectorAll('.card').forEach((c) => {
+    assert.ok(catOf(c.dataset.full).includes(top.name), '卡片不应属于其他分类：' + c.dataset.full);
+  });
+
+  // 按功能分类分组
+  p.change('#viewSelect', 'value', 'group-cat');
+  const pageCats = new Set(p.doc.querySelectorAll('.card')
+    .map((c) => (catOf(c.dataset.full)[0] || Core.UNCATEGORIZED)));
+  assert.equal(p.count('.group'), pageCats.size, '分组数应与本页主分类种类一致');
+
+  p.change('#viewSelect', 'value', 'grid');
+  p.click(p.chip('catFilter', ''));
+  assert.equal(p.text('#resultCount').startsWith('共 ' + NOT_ARCHIVED.length + ' 个'), true, '取消分类筛选应恢复');
   p.restore();
 });
 

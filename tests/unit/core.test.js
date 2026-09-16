@@ -82,6 +82,84 @@ test('matchesRule：五种字段命中且大小写无关', () => {
   assert.equal(Core.matchesRule(repo, { topics: [''] }), false);
 });
 
+const CAT_RULES = [
+  { name: 'AI · 大模型', match: { topics: ['llm', 'ai'], keywords: ['gpt'] } },
+  { name: '前端 · UI', match: { topics: ['react', 'frontend'], languages: ['TypeScript'] } },
+  { name: '工具 · CLI', match: { topics: ['cli'] } }
+];
+
+test('classify：按命中权重排序，同分按规则顺序', () => {
+  assert.deepEqual(Core.classify(raw({ topics: ['react'] }), CAT_RULES), ['前端 · UI']);
+  assert.deepEqual(Core.classify(raw({ topics: [] }), CAT_RULES), [], '无命中返回空数组');
+  assert.deepEqual(Core.classify(raw({ topics: ['cli', 'llm'] }), CAT_RULES), ['AI · 大模型', '工具 · CLI'],
+    '两个分类各命中一个话题时按规则顺序');
+
+  // 多条件命中得分更高：Topic(languages=2) + topic(react=3) > AI 的 topic(ai=3)
+  const multi = Core.classify(raw({ topics: ['ai', 'react'], language: 'TypeScript' }), CAT_RULES);
+  assert.equal(multi[0], '前端 · UI', '命中条件更多的分类优先');
+
+  assert.deepEqual(Core.classify(raw({ fullName: 'acme/tool', topics: [] }),
+    [{ name: '指定', match: { fullNames: ['acme/tool'] } }]), ['指定'], 'fullNames 精确匹配命中');
+  assert.equal(Core.classify(raw({}), []).length, 0, '没有规则时返回空');
+  assert.equal(Core.classify(raw({}), null).length, 0, '规则为 null 时安全返回空');
+  assert.equal(Core.classify(raw({ topics: ['llm'] }), [{ match: { topics: ['llm'] } }]).length, 0,
+    '缺 name 的规则被忽略');
+});
+
+test('ruleScore：权重与命中数累加', () => {
+  const repo = raw({ topics: ['llm'], language: 'Go' });
+  assert.equal(Core.ruleScore(repo, { topics: ['llm'] }), 3);
+  assert.equal(Core.ruleScore(repo, { topics: ['llm', 'ai'] }), 3, '只计命中的条件');
+  assert.equal(Core.ruleScore(repo, { topics: ['llm'], languages: ['Go'] }), 5);
+  assert.equal(Core.ruleScore(repo, { keywords: ['handy'] }), 1, '关键词命中描述');
+  assert.equal(Core.ruleScore(repo, { owners: ['acme'] }), 4);
+  assert.equal(Core.ruleScore(repo, {}), 0);
+});
+
+test('buildItems：派生 categories / category，强指派优先于规则', () => {
+  const items = Core.buildItems(SAMPLE, { tags: [], map: {} },
+    { categories: CAT_RULES, now: NOW, newWithinDays: 7 });
+  const byName = (n) => items.find((i) => i.fullName === n);
+
+  assert.deepEqual(byName('acme/alpha').categories, ['工具 · CLI']);
+  assert.equal(byName('acme/alpha').category, '工具 · CLI');
+  assert.deepEqual(byName('beta/web-ui').categories, ['前端 · UI'], '语言+话题同时命中仍只出现一次');
+  assert.deepEqual(byName('acme/old-thing').categories, []);
+  assert.equal(byName('acme/old-thing').category, Core.UNCATEGORIZED, '无命中归入「未分类」');
+  assert.ok(byName('beta/web-ui').search.includes('前端 · ui'), '分类名进入检索索引');
+
+  const overridden = Core.buildItems(SAMPLE, { tags: [], map: {} },
+    { categories: CAT_RULES, catMap: { 'acme/alpha': ['自定义分类'], 'acme/old-thing': '单个分类' }, now: NOW });
+  assert.deepEqual(overridden.find((i) => i.fullName === 'acme/alpha').categories, ['自定义分类']);
+  assert.deepEqual(overridden.find((i) => i.fullName === 'acme/old-thing').categories, ['单个分类'],
+    '字符串形式的强指派会被转成数组');
+});
+
+test('filterItems：按功能分类筛选，含「未分类」', () => {
+  const items = Core.buildItems(SAMPLE, { tags: [], map: {} },
+    { categories: CAT_RULES, now: NOW, newWithinDays: 7 });
+  const names = (list) => list.map((i) => i.fullName);
+
+  assert.deepEqual(names(Core.filterItems(items, { cat: '工具 · CLI' })), ['acme/alpha']);
+  assert.deepEqual(names(Core.filterItems(items, { cat: '前端 · UI' })), ['beta/web-ui']);
+  assert.deepEqual(names(Core.filterItems(items, { cat: Core.UNCATEGORIZED })),
+    ['acme/old-thing', 'gamma/docs'], '未命中任何规则的仓库归入「未分类」');
+  assert.equal(Core.filterItems(items, { cat: '' }).length, 4, '空值表示不筛选');
+  assert.deepEqual(names(Core.filterItems(items, { cat: '不存在' })), []);
+  assert.deepEqual(names(Core.filterItems(items, { cat: '工具 · CLI', kind: 'starred' })), [],
+    '分类筛选与其他条件取交集');
+});
+
+test('catCounts：计数按数量降序，「未分类」排最后', () => {
+  const items = Core.buildItems(SAMPLE, { tags: [], map: {} },
+    { categories: CAT_RULES, now: NOW, newWithinDays: 7 });
+  const counts = Core.catCounts(items);
+  assert.deepEqual(counts.map((c) => c.name), ['前端 · UI', '工具 · CLI', '未分类']);
+  assert.equal(counts[0].count, 1);
+  assert.equal(counts[counts.length - 1].name, Core.UNCATEGORIZED);
+  assert.deepEqual(Core.catCounts([]), []);
+});
+
 test('buildItems：字段补齐、标签合并、收藏与 NEW 判定', () => {
   const items = Core.buildItems(
     SAMPLE,
